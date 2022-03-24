@@ -245,7 +245,9 @@ void walStrncpy(char *destStr, const char *srcStr, size_t destSize)
 int operationalStatus = 0;
 void set_global_operationalStatus(int status)
 {
+    WalInfo("Entered into set_global_operationalStatus function status = %d\n", status);	
     operationalStatus = status;
+    WalInfo("After setting value operationalStatus = %d\n", operationalStatus);
 }
 
 int get_global_operationalStatus(void)
@@ -262,20 +264,25 @@ static void *WALInit(void *status)
 	componentStruct_t ** ppComponents = NULL;
 	cachingStatus = 0;
 
-	WalPrint("------------ WALInit ----------\n");
+	WalInfo("------------ WALInit ----------\n");
 	pthread_detach(pthread_self());
 	waitUntilSystemReady();
 	
 #ifdef FEATURE_SUPPORT_WEBCONFIG
+	WalInfo("Inside FEATURE_SUPPORT_WEBCONFIG flag...\n");
 	//Function to start webConfig operation after system ready.
 	WebcfgInfo("FEATURE_SUPPORT_WEBCONFIG is enabled, device status %d\n", (int)status);
+	WalInfo("FEATURE_SUPPORT_WEBCONFIG is enabled, device status %d\n", (int)status);
 	set_global_operationalStatus(status);
+        WalInfo("After set_global_operational function call...\n");
 	char RfcEnable[64];
 	memset(RfcEnable, 0, sizeof(RfcEnable));
 #ifdef RDKB_BUILD
+	WalInfo("Inside RDKB_BUILD flag...\n");
 	char* strValue = NULL;
 	if (CCSP_SUCCESS == PSM_Get_Record_Value2(bus_handle, g_Subsystem, "eRT.com.cisco.spvtg.ccsp.webpa.WebConfigRfcEnable", NULL, &strValue))
 	{
+		WalInfo("WebConfigRfcEnable = %s\n", strValue);
 		WebcfgDebug("strValue %s \n", strValue);
 		if(strValue != NULL)
 		{
@@ -286,18 +293,23 @@ static void *WALInit(void *status)
 #endif
 	if(RfcEnable[0] != '\0' && strncmp(RfcEnable, "true", strlen("true")) == 0)
 	{
+	    WalInfo("RfcEnabled...\n");	
 	    if(get_global_mpThreadId() == NULL) 
 	    {
+		WalInfo("WebConfig Rfc is enabled, starting WebConfigMultipartTask\n");      
 	    	WebcfgInfo("WebConfig Rfc is enabled, starting WebConfigMultipartTask\n");
 	    	initWebConfigMultipartTask((unsigned long) status);
+		WalInfo("After initWebConfigMultipartTask Function call ...\n");
  	    }
 	    else
 	    {
+		WalInfo("Webconfig is already started, so not starting after systemready\n");    
 		WebcfgInfo("Webconfig is already started, so not starting after systemready\n");
 	    }
 	}
 	else
 	{
+		WalInfo("WebConfig Rfc Flag is not enabled\n");
 		WebcfgError("WebConfig Rfc Flag is not enabled\n");
 	}
 #endif
