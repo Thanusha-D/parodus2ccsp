@@ -56,6 +56,14 @@ typedef enum
  */
 WDMP_STATUS msgBusInit(const char *name);
 
+void daemonize(void);
+
+bool isRbusEnabled();
+
+WDMP_STATUS webpaRbusInit(const char *pComponentName);
+
+WDMP_STATUS regWebpaDataModel();
+
 /**
  * @brief waitForOperationalReadyCondition wait till all dependent components
  * required for being operational are initialized
