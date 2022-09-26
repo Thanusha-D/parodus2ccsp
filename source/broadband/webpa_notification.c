@@ -20,7 +20,7 @@
 /*                                   Macros                                   */
 /*----------------------------------------------------------------------------*/
 /* Notify Macros */
-#define WEBPA_SET_INITIAL_NOTIFY_RETRY_COUNT            5
+#define WEBPA_SET_INITIAL_NOTIFY_RETRY_COUNT            7
 #define WEBPA_SET_INITIAL_NOTIFY_RETRY_SEC              15
 #define WEBPA_NOTIFY_EVENT_HANDLE_INTERVAL_MSEC         250
 #define BACKOFF_MAX_RETRY_SEC							512
@@ -123,8 +123,12 @@ const char * notifyparameters[]={
 "Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.PrivacyProtection.Enable",
 "Device.DeviceInfo.X_RDKCENTRAL-COM_PrivacyProtection.Activate",
 "Device.DeviceInfo.X_RDKCENTRAL-COM_CloudUIEnable",
+#ifndef _CBR_PRODUCT_REQ_
 "Device.DeviceInfo.X_RDKCENTRAL-COM_AkerEnable",
+#endif
+#if ! defined(_HUB4_PRODUCT_REQ_) && ! defined(_CBR_PRODUCT_REQ_)
 "Device.MoCA.Interface.1.Enable",
+#endif
 "Device.NotifyComponent.X_RDKCENTRAL-COM_PresenceNotification",
 "Device.WiFi.X_CISCO_COM_FactoryResetRadioAndAp",
 "Device.WiFi.SSID.10003.SSID",
@@ -163,6 +167,43 @@ const char * notifyparameters[]={
 "Device.X_COMCAST-COM_GRE.Tunnel.1.Interface.1.LocalInterfaces",
 "Device.X_COMCAST-COM_GRE.Tunnel.1.Interface.2.VLANID",
 "Device.X_COMCAST-COM_GRE.Tunnel.1.Interface.2.LocalInterfaces",
+#ifdef _HUB4_PRODUCT_REQ_
+"Device.NAT.X_CISCO_COM_PortTriggers.Enable",
+"Device.UPnP.Device.UPnPIGD",
+"Device.UserInterface.X_CISCO_COM_RemoteAccess.HttpEnable",
+"Device.UserInterface.X_CISCO_COM_RemoteAccess.HttpsEnable",
+#endif
+#ifdef FEATURE_SUPPORT_6G_RADIO
+"Device.WiFi.AccessPoint.10201.Security.ModeEnabled",
+"Device.WiFi.AccessPoint.10201.Security.X_COMCAST-COM_KeyPassphrase",
+"Device.WiFi.AccessPoint.10201.SSIDAdvertisementEnabled",
+"Device.WiFi.AccessPoint.10201.X_CISCO_COM_MACFilter.Enable",
+"Device.WiFi.AccessPoint.10201.X_CISCO_COM_MACFilter.FilterAsBlackList",
+"Device.WiFi.AccessPoint.10202.Security.ModeEnabled",
+"Device.WiFi.AccessPoint.10202.Security.X_COMCAST-COM_KeyPassphrase",
+"Device.WiFi.AccessPoint.10202.Security.KeyPassphrase",
+"Device.WiFi.AccessPoint.10202.Security.PreSharedKey",
+"Device.WiFi.Radio.10200.Enable",
+"Device.WiFi.SSID.10201.Enable",
+"Device.WiFi.SSID.10201.SSID",
+"Device.WiFi.SSID.10202.Enable",
+"Device.WiFi.SSID.10202.SSID",
+"Device.WiFi.SSID.10203.SSID",
+"Device.WiFi.SSID.10205.SSID",
+"Device.WiFi.SSID.10205.Status",
+"Device.WiFi.SSID.10203.Status",
+"Device.WiFi.AccessPoint.10203.SSIDAdvertisementEnabled",
+"Device.WiFi.AccessPoint.10205.SSIDAdvertisementEnabled",
+"Device.WiFi.AccessPoint.10203.Security.RadiusServerIPAddr",
+"Device.WiFi.AccessPoint.10205.Security.RadiusServerIPAddr",
+"Device.WiFi.SSID.10203.BSSID",
+"Device.WiFi.SSID.10205.BSSID",
+"Device.WiFi.AccessPoint.10203.Security.ModeEnabled",
+"Device.WiFi.AccessPoint.10205.Security.ModeEnabled",
+"Device.WiFi.Radio.10200.Channel",
+"Device.WiFi.Radio.10200.OperatingFrequencyBand",
+"Device.WiFi.Radio.10200.OperatingChannelBandwidth",
+#endif
 /* Always keep AdvancedSecurity parameters as the last parameters in notify list as these have to be removed if cujo/fp is not enabled. */
 "Device.DeviceInfo.X_RDKCENTRAL-COM_AdvancedSecurity.SafeBrowsing.Enable",
 "Device.DeviceInfo.X_RDKCENTRAL-COM_AdvancedSecurity.Softflowd.Enable"
@@ -592,7 +633,7 @@ static void setInitialNotify()
 	int notifyListSize = 0;
 
 	int backoffRetryTime = 0;
-	int backoff_max_time = 7;
+	int backoff_max_time = 10;
         int max_retry_sleep;
 	//Retry Backoff count will start at c=2 & calculate 2^c - 1.
 	int c = 2;
@@ -667,11 +708,16 @@ static void setInitialNotify()
 			sleep(backoffRetryTime);
 			c++;
 			
-			if(backoffRetryTime == max_retry_sleep)
+			if(backoffRetryTime == 127) // after 127s backoff delay, next delay will be 2^10 - 1 = 1023s i.e. > 15mins
+                        {
+                                c = 10; // skip c = 8,9
+                                WalInfo("setInitialNotify backoffRetryTime reached 127s, wait for more than 15mins for next retry\n");
+                        }
+			else if(backoffRetryTime == max_retry_sleep)
                         {
                         	c = 2;
                         	backoffRetryTime = 0;
-                        	WalPrint("setInitialNotify backoffRetryTime reached max value, reseting to initial value\n");
+                        	WalInfo("setInitialNotify backoffRetryTime reached max value, reseting to initial value\n");
                         }
 
 		} while (retry++ < WEBPA_SET_INITIAL_NOTIFY_RETRY_COUNT);
@@ -1346,14 +1392,15 @@ static WDMP_STATUS processFactoryResetNotification(ParamNotify *paramNotify, uns
 	WalPrint("Inside processFactoryResetNotification ..\n");
 	dbCID = getParameterValue(PARAM_CID);
 	WalPrint("dbCID value is %s\n", dbCID);
-
+	strCMC = getParameterValue(PARAM_CMC);
+	
 	reboot_reason = getParameterValue(PARAM_REBOOT_REASON);
 	WalInfo("Received reboot_reason as:%s\n", reboot_reason ? reboot_reason : "reboot_reason is NULL");
 
-	if( ((NULL != reboot_reason) && (strcmp(reboot_reason,"factory-reset")==0)) || ((NULL != dbCID) && (strcmp(dbCID, "0") ==0)) )
+	// Actual FR case
+	if( (NULL != reboot_reason) && (strcmp(reboot_reason,"factory-reset")==0) )
 	{
 		WalInfo("Send factory reset notification to server, reboot reason is %s\n", reboot_reason);
-		strCMC = getParameterValue(PARAM_CMC);
 		if (strCMC != NULL)
 		{
 			oldCMC = atoi(strCMC);
@@ -1404,6 +1451,32 @@ static WDMP_STATUS processFactoryResetNotification(ParamNotify *paramNotify, uns
 		{
 			WalError("Failed to Get CMC Value, hence ignoring the Set for new CMC value for Factory reset notification\n");
 		}
+	}
+	// Set CMC, CID to 512, 61f4db9 when they are reset to 0 without factory-reset i.e. PSM DB corruption or reset
+	// Returning status failure as its false FR case 
+	else if( ((NULL != dbCID) && (strcmp(dbCID, "0") ==0)) && ((NULL != strCMC) && (strcmp(strCMC, "0") ==0)) )
+	{
+		snprintf(strnewCMC, sizeof(strnewCMC), "%d", CHANGED_BY_XPC);
+		status = setParameterValue(PARAM_CMC,strnewCMC, WDMP_UINT);
+		if(status == WDMP_SUCCESS)
+			WalInfo("Successfully reset CMC to %s to avoid false FR notification\n", strnewCMC);
+		else
+			WalError("Error status %d while re-setting CMC value to avoid false FR notification\n", status);
+
+
+		status = setParameterValue(PARAM_CID,XPC_CID, WDMP_STRING);
+                if(status == WDMP_SUCCESS)
+                        WalInfo("Successfully reset CID to %s to avoid false FR notification\n", XPC_CID);
+		else    
+                        WalError("Error status %d while re-setting CID value to avoid false FR notification\n", status);
+		
+		// Set status to failure as this is not actual FR case
+		status = WDMP_FAILURE; 
+
+	}
+
+	if (NULL != strCMC) {
+		WAL_FREE(strCMC);
 	}
 
 	if (NULL != dbCID) {

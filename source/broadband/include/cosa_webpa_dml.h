@@ -14,6 +14,16 @@ Webpa_SetParamStringValue
 	char*                       pString
     );
 
+#ifdef WEBCONFIG_BIN_SUPPORT
+BOOL
+X_RDK_Webpa_SetParamStringValue
+    (
+        ANSC_HANDLE                 hInsContext,
+        char*                       ParamName,
+	char*                       pString
+    );
+#endif
+
 ULONG
 Webpa_GetParamStringValue
     (
@@ -67,5 +77,32 @@ Webpa_SetParamUlongValue
         ANSC_HANDLE                 hInsContext,
         char*                       ParamName,
         ULONG                       uValue
+    );
+
+ULONG
+WebpaServer_GetParamStringValue
+    (
+        ANSC_HANDLE                 hInsContext,
+        char*                       ParamName,
+        char*                       pValue,
+        ULONG*                      pUlSize
+    );
+
+ULONG
+WebpaTokenServer_GetParamStringValue
+    (
+        ANSC_HANDLE                 hInsContext,
+        char*                       ParamName,
+        char*                       pValue,
+        ULONG*                      pUlSize
+    );
+
+ULONG
+WebpaDNSText_GetParamStringValue
+    (
+        ANSC_HANDLE                 hInsContext,
+        char*                       ParamName,
+        char*                       pValue,
+        ULONG*                      pUlSize
     );
     

@@ -11,9 +11,14 @@
 #define WEBPA_PARAM_VERSION                 "Device.X_RDKCENTRAL-COM_Webpa.Version"
 #define WEBPA_PARAM_PROTOCOL_VERSION        "Device.DeviceInfo.Webpa.X_COMCAST-COM_SyncProtocolVersion"
 #define WiFi_FactoryResetRadioAndAp	    "Device.WiFi.X_CISCO_COM_FactoryResetRadioAndAp"
-
+#ifdef WEBCONFIG_BIN_SUPPORT
+#define CONN_CLIENT_PARAM		    "Device.NotifyComponent.X_RDKCENTRAL-COM_Connected-Client"
+#endif
 #ifndef RDKB_BUILD
-#define CCSP_COMPONENT_ID_NOTIFY_COMP	     1
+#define CCSP_COMPONENT_ID_NOTIFY_COMP       1
+#ifdef WEBCONFIG_BIN_SUPPORT
+#define CCSP_COMPONENT_ID_WEBCONFIG         1
+#endif
 #endif
 extern PCOSA_BACKEND_MANAGER_OBJECT g_pCosaBEManager;
 
@@ -175,7 +180,6 @@ Webpa_SetParamStringValue
 		   }
         	}
 
-
 	/* Required for xPC sync */
         if( AnscEqualString(ParamName, "X_COMCAST-COM_CID", TRUE))
         {
@@ -196,6 +200,87 @@ Webpa_SetParamStringValue
 
     return FALSE;
 }
+
+#ifdef WEBCONFIG_BIN_SUPPORT
+BOOL
+X_RDK_Webpa_SetParamStringValue
+    (
+        ANSC_HANDLE                 hInsContext,
+        char*                       ParamName,
+	char*                       pString
+    )
+{
+
+	PCOSA_DATAMODEL_WEBPA       hWebpa    = (PCOSA_DATAMODEL_WEBPA)g_pCosaBEManager->hWebpa;
+        PCOSA_DML_WEBPA             pWebpa    = (PCOSA_DML_WEBPA) hWebpa->pWebpa;
+	PCOSA_DML_WEBPA_CONFIG      pWebpaCfg = (PCOSA_DML_WEBPA_CONFIG)pWebpa->pWebpaCfg;
+
+	WalPrint("<========= Start of X_RDK_Webpa_SetParamStringValue ========>\n");
+	WalInfo("Received data ParamName %s,data length: %d bytes\n",ParamName, strlen(pString));
+	
+	if( AnscEqualString(ParamName, "ConnectedClientNotify", TRUE))
+        {
+		if( GET_CURRENT_WRITE_ENTITY() == CCSP_COMPONENT_ID_WEBCONFIG )
+		{
+	  	char notif[4] = "";
+		WDMP_STATUS ret = WDMP_FAILURE;
+		param_t *attArr = NULL;
+		if(pString != NULL)
+		{
+			if(strcmp(pString, "enabled")==0)
+			{
+				snprintf(notif, sizeof(notif), "%d", 0);
+			}
+			else if(strcmp(pString, "disabled")==0)
+			{
+				snprintf(notif, sizeof(notif), "%d", 1);
+			}
+			else
+			{
+				WalError("Invalid apply status in ACK event\n");
+				return FALSE;
+			}
+					
+			attArr = (param_t *) malloc(sizeof(param_t));
+			if(attArr !=NULL)
+			{
+				memset(attArr,0,sizeof(param_t));
+				attArr[0].value = (char *) malloc(sizeof(char) * 4);
+				snprintf(attArr[0].value, 4, "%s", notif);
+				attArr[0].name = CONN_CLIENT_PARAM;
+				attArr[0].type = WDMP_INT;
+				setAttributes(attArr, 1, NULL, &ret);
+				if (ret != WDMP_SUCCESS)
+				{
+					WalError("setAttributes failed for parameter : %s notif:%s ret: %d\n", CONN_CLIENT_PARAM, notif, ret);
+					WAL_FREE(attArr[0].value);
+					WAL_FREE(attArr);
+					return 	FALSE;
+				}
+				else
+				{
+					WalInfo("setAttributes success for parameter : %s notif:%s ret: %d\n",CONN_CLIENT_PARAM, notif, ret);
+				}
+				WAL_FREE(attArr[0].value);
+				WAL_FREE(attArr);
+			}
+		}
+        	return TRUE;
+		}
+		else
+		{
+			WalInfo("Write ID is %ld\n", GET_CURRENT_WRITE_ENTITY());
+			WalError("Operation not allowed\n");
+			return FALSE;
+		}
+		
+	}
+		   	
+	WalPrint("<=========== End of X_RDK_Webpa_SetParamStringValue ========\n");
+
+    return FALSE;
+}
+#endif
 
 ULONG
 Webpa_GetParamStringValue
@@ -228,7 +313,7 @@ Webpa_GetParamStringValue
 	        AnscCopyString(pValue, pWebpaCfg->X_COMCAST_COM_SyncProtocolVersion);
 		return 0;
         }
-	
+
 	if( AnscEqualString(ParamName, "Version", TRUE))
         {
                 WalPrint("Version\n");
@@ -297,13 +382,82 @@ Webpa_SetParamUlongValue
     return FALSE;
 }
 
+ULONG
+WebpaServer_GetParamStringValue
+    (
+        ANSC_HANDLE                 hInsContext,
+        char*                       ParamName,
+        char*                       pValue,
+        ULONG*                      pUlSize
+    )
+{
+        PCOSA_DATAMODEL_WEBPA       hWebpa    = (PCOSA_DATAMODEL_WEBPA)g_pCosaBEManager->hWebpa;
+        PCOSA_DML_WEBPA             pWebpa    = (PCOSA_DML_WEBPA) hWebpa->pWebpa;
+        PCOSA_DML_WEBPA_CONFIG      pWebpaCfg = (PCOSA_DML_WEBPA_CONFIG)pWebpa->pWebpaCfg;	
+        if( AnscEqualString(ParamName, "URL", TRUE))
+        {
+                WalPrint("URL\n");
+                CosaDml_GetValueFromPSMDB( WEBPA_SERVER_URL, pWebpaCfg->WEBPA_Server_URL );
+                AnscCopyString(pValue, pWebpaCfg->WEBPA_Server_URL);
+                return 0;
+        }	
+        WalError("Unsupported parameter '%s'\n", ParamName);
+     return -1;
+}
+
+ULONG
+WebpaTokenServer_GetParamStringValue
+    (
+        ANSC_HANDLE                 hInsContext,
+        char*                       ParamName,
+        char*                       pValue,
+        ULONG*                      pUlSize
+    )
+{
+        PCOSA_DATAMODEL_WEBPA       hWebpa    = (PCOSA_DATAMODEL_WEBPA)g_pCosaBEManager->hWebpa;
+        PCOSA_DML_WEBPA             pWebpa    = (PCOSA_DML_WEBPA) hWebpa->pWebpa;
+        PCOSA_DML_WEBPA_CONFIG      pWebpaCfg = (PCOSA_DML_WEBPA_CONFIG)pWebpa->pWebpaCfg;	
+        if( AnscEqualString(ParamName, "URL", TRUE))
+        {
+                WalPrint("URL\n");
+                CosaDml_GetValueFromPSMDB( TOKEN_SERVER_URL, pWebpaCfg->TOKEN_Server_URL );
+		AnscCopyString(pValue, pWebpaCfg->TOKEN_Server_URL);
+                return 0;
+        }
+        WalError("Unsupported parameter '%s'\n", ParamName);
+     return -1;
+}
+
+ULONG
+WebpaDNSText_GetParamStringValue
+    (
+        ANSC_HANDLE                 hInsContext,
+        char*                       ParamName,
+        char*                       pValue,
+        ULONG*                      pUlSize
+    )
+{
+        PCOSA_DATAMODEL_WEBPA       hWebpa    = (PCOSA_DATAMODEL_WEBPA)g_pCosaBEManager->hWebpa;
+        PCOSA_DML_WEBPA             pWebpa    = (PCOSA_DML_WEBPA) hWebpa->pWebpa;
+        PCOSA_DML_WEBPA_CONFIG      pWebpaCfg = (PCOSA_DML_WEBPA_CONFIG)pWebpa->pWebpaCfg;	
+        if( AnscEqualString(ParamName, "URL", TRUE))
+        {
+                WalPrint("URL\n");
+                CosaDml_GetValueFromPSMDB( DNS_TEXT_URL, pWebpaCfg->DNS_Text_URL );
+		AnscCopyString(pValue, pWebpaCfg->DNS_Text_URL);
+                return 0;
+        }
+        WalError("Unsupported parameter '%s'\n", ParamName);
+     return -1;
+}
+
 int getWebpaParameterValues(char **parameterNames, int paramCount, int *val_size, parameterValStruct_t ***val)
 {
-    char *webpaObjects[] ={"Device.DeviceInfo.Webpa.", "Device.X_RDKCENTRAL-COM_Webpa.","Device.Webpa.","Device.DeviceInfo."};
+    char *webpaObjects[] ={"Device.DeviceInfo.Webpa.", "Device.X_RDKCENTRAL-COM_Webpa.", "Device.Webpa.", "Device.DeviceInfo."};
     int objSize = sizeof(webpaObjects)/sizeof(webpaObjects[0]);
     parameterValStruct_t **paramVal = NULL;
     paramVal = (parameterValStruct_t **) malloc(sizeof(parameterValStruct_t *)*paramCount);
-    int i=0, j=0, k=0, isWildcard = 0, matchFound = 0;
+    int i=0, j=0, k=0, l=0, isWildcard = 0, matchFound = 0;
     int localCount = paramCount;
     char tmpchar[128] = { 0 };
     WalPrint("*********** %s ***************\n",__FUNCTION__);
@@ -425,20 +579,150 @@ int getWebpaParameterValues(char **parameterNames, int paramCount, int *val_size
                     }
                     case 1:
                     {
-                        paramVal[k] = (parameterValStruct_t *) malloc(sizeof(parameterValStruct_t));
-                        if((strcmp(parameterNames[i], WEBPA_PARAM_VERSION) == 0) || ((isWildcard == 1) && (strcmp(parameterNames[i],webpaObjects[j]) == 0)))
-                        {
-                            paramVal[k]->parameterName = strndup(WEBPA_PARAM_VERSION, MAX_PARAMETERNAME_LEN);
-                            paramVal[k]->parameterValue = (char*) malloc(sizeof(char)*MAX_PARAMETERVALUE_LEN);
-                            snprintf(paramVal[k]->parameterValue,sizeof(char)*MAX_PARAMETERVALUE_LEN,"%s-%s",WEBPA_PROTOCOL, WEBPA_GIT_VERSION);
-                            paramVal[k]->type = ccsp_string;
-                            k++;
-                        }
-                        else
-                        {
-                            WAL_FREE(paramVal[k]);
-                            matchFound = 0;
-                        }
+			if(isWildcard == 0) {
+			    paramVal[k] = (parameterValStruct_t *) malloc(sizeof(parameterValStruct_t));	
+                            if(strcmp(parameterNames[i], WEBPA_PARAM_VERSION) == 0) // Device.X_RDKCENTRAL-COM_Webpa.Version
+                            {    
+                                paramVal[k]->parameterName = strndup(WEBPA_PARAM_VERSION, MAX_PARAMETERNAME_LEN);
+                                paramVal[k]->parameterValue = (char*) malloc(sizeof(char)*MAX_PARAMETERVALUE_LEN);
+                                snprintf(paramVal[k]->parameterValue,sizeof(char)*MAX_PARAMETERVALUE_LEN,"%s-%s",WEBPA_PROTOCOL, WEBPA_GIT_VERSION);
+                                paramVal[k]->type = ccsp_string;
+				k++;
+                            }
+			    else if(strcmp(parameterNames[i], WEBPA_SERVER_URL) == 0)  //Device.X_RDKCENTRAL-COM_Webpa.Server.URL
+			    {			    
+                                paramVal[k]->parameterName = strndup(WEBPA_SERVER_URL, MAX_PARAMETERNAME_LEN);
+                                if(strlen(pWebpaCfg->WEBPA_Server_URL) == 0)
+				{
+				        CosaDml_GetValueFromPSMDB( WEBPA_SERVER_URL, pWebpaCfg->WEBPA_Server_URL );
+				}
+			        paramVal[k]->parameterValue = strndup(pWebpaCfg->WEBPA_Server_URL,MAX_PARAMETERVALUE_LEN);
+                                paramVal[k]->type = ccsp_string;
+				k++;
+                            }
+			    else if(strcmp(parameterNames[i], TOKEN_SERVER_URL) == 0)   //Device.X_RDKCENTRAL-COM_Webpa.TokenServer.URL
+			    {  
+                                paramVal[k]->parameterName = strndup(TOKEN_SERVER_URL, MAX_PARAMETERNAME_LEN);
+                                if(strlen(pWebpaCfg->TOKEN_Server_URL) == 0)
+				{
+                                        CosaDml_GetValueFromPSMDB( TOKEN_SERVER_URL, pWebpaCfg->TOKEN_Server_URL );
+                                }
+                                paramVal[k]->parameterValue = strndup(pWebpaCfg->TOKEN_Server_URL,MAX_PARAMETERVALUE_LEN);
+                                paramVal[k]->type = ccsp_string;
+                                k++;
+                            }
+			    else if(strcmp(parameterNames[i], DNS_TEXT_URL) == 0)  //Device.X_RDKCENTRAL-COM_Webpa.DNSText.URL
+			    {   
+                                paramVal[k]->parameterName = strndup(DNS_TEXT_URL, MAX_PARAMETERNAME_LEN);
+                                if(strlen(pWebpaCfg->DNS_Text_URL) == 0) 
+				{
+                                        CosaDml_GetValueFromPSMDB( DNS_TEXT_URL, pWebpaCfg->DNS_Text_URL );
+                                }
+                                paramVal[k]->parameterValue = strndup(pWebpaCfg->DNS_Text_URL,MAX_PARAMETERVALUE_LEN);
+                                paramVal[k]->type = ccsp_string;
+                                k++;
+			    }	
+                            else
+                            {    
+                                WAL_FREE(paramVal[k]);
+                                matchFound = 0;
+                            }
+		        }
+			else 
+			{
+				if(strcmp(parameterNames[i],webpaObjects[j]) == 0)  //Device.X_RDKCENTRAL-COM_Webpa.
+				{	
+				            localCount= localCount+3;
+                                             paramVal = (parameterValStruct_t **) realloc(paramVal, sizeof(parameterValStruct_t *)*localCount);
+				             
+					     paramVal[k] = (parameterValStruct_t *) malloc(sizeof(parameterValStruct_t));
+				             paramVal[k]->parameterName = strndup(WEBPA_PARAM_VERSION, MAX_PARAMETERNAME_LEN);
+                                             paramVal[k]->parameterValue = (char*) malloc(sizeof(char)*MAX_PARAMETERVALUE_LEN);
+                                             snprintf(paramVal[k]->parameterValue,sizeof(char)*MAX_PARAMETERVALUE_LEN,"%s-%s",WEBPA_PROTOCOL, WEBPA_GIT_VERSION);
+                                             paramVal[k]->type = ccsp_string;
+                                             k++;  
+
+					     paramVal[k] = (parameterValStruct_t *) malloc(sizeof(parameterValStruct_t));
+					     paramVal[k]->parameterName = strndup(WEBPA_SERVER_URL, MAX_PARAMETERNAME_LEN);
+                                             if(strlen(pWebpaCfg->WEBPA_Server_URL) == 0)
+					     {
+                                                      CosaDml_GetValueFromPSMDB( WEBPA_SERVER_URL, pWebpaCfg->WEBPA_Server_URL );
+                                             }  
+                                             paramVal[k]->parameterValue = strndup(pWebpaCfg->WEBPA_Server_URL,MAX_PARAMETERVALUE_LEN);
+                                             paramVal[k]->type = ccsp_string;
+                                             k++;
+
+					     paramVal[k] = (parameterValStruct_t *) malloc(sizeof(parameterValStruct_t));
+					     paramVal[k]->parameterName = strndup(TOKEN_SERVER_URL, MAX_PARAMETERNAME_LEN);
+                                             if(strlen(pWebpaCfg->TOKEN_Server_URL) == 0)
+					     {
+                                                      CosaDml_GetValueFromPSMDB( TOKEN_SERVER_URL, pWebpaCfg->TOKEN_Server_URL );
+                                             }   
+                                             paramVal[k]->parameterValue = strndup(pWebpaCfg->TOKEN_Server_URL,MAX_PARAMETERVALUE_LEN);
+                                             paramVal[k]->type = ccsp_string;
+                                             k++;
+
+					     paramVal[k] = (parameterValStruct_t *) malloc(sizeof(parameterValStruct_t));
+					     paramVal[k]->parameterName = strndup(DNS_TEXT_URL, MAX_PARAMETERNAME_LEN);
+                                             if(strlen(pWebpaCfg->DNS_Text_URL) == 0) 
+					     {
+                                                      CosaDml_GetValueFromPSMDB( DNS_TEXT_URL, pWebpaCfg->DNS_Text_URL );
+                                             }
+                                             paramVal[k]->parameterValue = strndup(pWebpaCfg->DNS_Text_URL,MAX_PARAMETERVALUE_LEN);
+                                             paramVal[k]->type = ccsp_string;
+                                             k++;
+			          }
+				  else 
+				  {
+                                         char *webpaSubObjects[] ={"Device.X_RDKCENTRAL-COM_Webpa.Server.", "Device.X_RDKCENTRAL-COM_Webpa.TokenServer.", "Device.X_RDKCENTRAL-COM_Webpa.DNSText."};
+                                         int subObjSize = sizeof(webpaSubObjects)/sizeof(webpaSubObjects[0]);
+					 for(int l=0; l<subObjSize; l++)
+				         {
+					       if(strcmp(parameterNames[i],webpaSubObjects[l]) == 0)
+					       {
+			                 	     switch(l)
+						     {
+							     case 0:   //Device.X_RDKCENTRAL-COM_Webpa.Server.
+								    paramVal[k] = (parameterValStruct_t *) malloc(sizeof(parameterValStruct_t));
+					                            paramVal[k]->parameterName = strndup(WEBPA_SERVER_URL, MAX_PARAMETERNAME_LEN);
+                                                                    if(strlen(pWebpaCfg->WEBPA_Server_URL) == 0)
+                                                                    { 
+                                                                            CosaDml_GetValueFromPSMDB( WEBPA_SERVER_URL, pWebpaCfg->WEBPA_Server_URL );
+                                                                    }
+                                                                    paramVal[k]->parameterValue = strndup(pWebpaCfg->WEBPA_Server_URL,MAX_PARAMETERVALUE_LEN);
+                                                                    paramVal[k]->type = ccsp_string;
+                                                                    k++;
+								    break;
+							     case 1:   //Device.X_RDKCENTRAL-COM_Webpa.TokenServer.	    
+                                        			    paramVal[k] = (parameterValStruct_t *) malloc(sizeof(parameterValStruct_t));
+					                            paramVal[k]->parameterName = strndup(TOKEN_SERVER_URL, MAX_PARAMETERNAME_LEN);
+                                                                    if(strlen(pWebpaCfg->TOKEN_Server_URL) == 0)
+                                                                    {  
+                                                                            CosaDml_GetValueFromPSMDB( TOKEN_SERVER_URL, pWebpaCfg->TOKEN_Server_URL );
+                                                                    }
+                                                                    paramVal[k]->parameterValue = strndup(pWebpaCfg->TOKEN_Server_URL,MAX_PARAMETERVALUE_LEN);
+                                                                    paramVal[k]->type = ccsp_string;
+                                                                    k++;
+								    break;
+				                             case 2:   //Device.X_RDKCENTRAL-COM_Webpa.DNSText.
+					                            paramVal[k] = (parameterValStruct_t *) malloc(sizeof(parameterValStruct_t));
+					                            paramVal[k]->parameterName = strndup(DNS_TEXT_URL, MAX_PARAMETERNAME_LEN);
+                                                                    if(strlen(pWebpaCfg->DNS_Text_URL) == 0)
+                                                                    {
+                                                                            CosaDml_GetValueFromPSMDB( DNS_TEXT_URL, pWebpaCfg->DNS_Text_URL );
+                                                                    }
+                                                                    paramVal[k]->parameterValue = strndup(pWebpaCfg->DNS_Text_URL,MAX_PARAMETERVALUE_LEN);
+                                                                    paramVal[k]->type = ccsp_string;
+					                            k++;
+								    break;							     
+                                                             default:
+								    matchFound = 0;
+								    break;
+				                     }  	
+					       }    
+				        }   
+                                  }
+			}	  
                         break;
                     }
                     case 2:
@@ -457,7 +741,7 @@ int getWebpaParameterValues(char **parameterNames, int paramCount, int *val_size
                         return CCSP_ERR_METHOD_NOT_SUPPORTED;
                         break;
                     }
-                }
+		}
                 break;
             }
         }

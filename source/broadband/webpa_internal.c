@@ -14,6 +14,8 @@
 #include <webcfg_log.h>
 #include <webcfg.h>
 #endif
+
+#include <cJSON.h>
 /*----------------------------------------------------------------------------*/
 /*                            File Scoped Variables                           */
 /*----------------------------------------------------------------------------*/
@@ -32,7 +34,9 @@ char *objectList[] ={
 "Device.UserInterface.",
 "Device.InterfaceStack.",
 "Device.Ethernet.",
+#if ! defined(_HUB4_PRODUCT_REQ_) && ! defined(_CBR_PRODUCT_REQ_)
 "Device.MoCA.",
+#endif
 "Device.PPP.",
 "Device.IP.",
 "Device.Routing.",
@@ -51,10 +55,12 @@ char *objectList[] ={
 "Device.NeighborDiscovery.",
 "Device.IPv6rd.",
 "Device.X_CISCO_COM_MLD.",
+#ifndef _HUB4_PRODUCT_REQ_
 #if defined(_COSA_BCM_MIPS_)
 "Device.DPoE.",
 #else
 "Device.X_CISCO_COM_CableModem.",
+#endif
 #endif
 "Device.X_Comcast_com_ParentalControl.",
 "Device.X_CISCO_COM_Diagnostics.",
@@ -64,14 +70,14 @@ char *objectList[] ={
 "Device.Hosts.",
 "Device.ManagementServer.",
 "Device.XHosts.",
+#ifndef _HUB4_PRODUCT_REQ_
 "Device.X_CISCO_COM_MTA.",
+#endif
 "Device.X_RDKCENTRAL-COM_XDNS.",
 "Device.X_RDKCENTRAL-COM_Report.",
 "Device.SelfHeal.",
 "Device.LogBackup.",
-"Device.IoT.",
 "Device.NotifyComponent.",
-"Device.LogAgent.",
 "Device.X_RDKCENTRAL-COM_Webpa.",
 #if defined(FEATURE_SUPPORT_WEBCONFIG)
 "Device.X_RDK_WebConfig.",
@@ -82,7 +88,9 @@ char *objectList[] ={
 char *subObjectList[] = 
 {
 "Device.DeviceInfo.NetworkProperties.",
+#if ! defined(_HUB4_PRODUCT_REQ_) && ! defined(_CBR_PRODUCT_REQ_)
 "Device.MoCA.Interface.",
+#endif
 "Device.IP.Diagnostics.",
 "Device.IP.Interface.",
 "Device.DNS.Diagnostics.",
@@ -98,13 +106,17 @@ char *subObjectList[] =
 "Device.X_RDKCENTRAL-COM_Report.RadioInterfaceStatistics.",
 "Device.X_RDKCENTRAL-COM_Report.NeighboringAP.",
 "Device.X_RDKCENTRAL-COM_Report.NetworkDevicesStatus.",
-"Device.X_RDKCENTRAL-COM_Report.NetworkDevicesTraffic."
+"Device.X_RDKCENTRAL-COM_Report.NetworkDevicesTraffic.",
+"Device.X_RDKCENTRAL-COM_Webpa.Server.",
+"Device.X_RDKCENTRAL-COM_Webpa.TokenServer.",
+"Device.X_RDKCENTRAL-COM_Webpa.DNSText."
 }; 
 
 char *CcspDmlName[WIFI_PARAM_MAP_SIZE] = {"Device.WiFi.Radio", "Device.WiFi.SSID", "Device.WiFi.AccessPoint"};
 CpeWebpaIndexMap IndexMap[WIFI_INDEX_MAP_SIZE] = {
 {10000, 1},
 {10100, 2},
+{10200, 3},
 {10001, 1},
 {10002, 3},
 {10003, 5},
@@ -120,7 +132,15 @@ CpeWebpaIndexMap IndexMap[WIFI_INDEX_MAP_SIZE] = {
 {10105, 10},
 {10106, 12},
 {10107, 14},
-{10108, 16}
+{10108, 16},
+{10201, 17},
+{10202, 18},
+{10203, 19},
+{10204, 20},
+{10205, 21},
+{10206, 22},
+{10207, 23},
+{10208, 24}
 };
 BOOL eth_wan_status = FALSE;
 
@@ -176,10 +196,12 @@ int waitForOperationalReadyCondition()
 #elif !defined(PLATFORM_RASPBERRYPI) && !defined(RDKB_EMU)
     if(check_ethernet_wan_status() != WDMP_SUCCESS)
 	{
+#if !defined(_SKY_HUB_COMMON_PRODUCT_REQ_)
 	    if(waitForComponentReady(RDKB_CM_COMPONENT_NAME,RDKB_CM_DBUS_PATH) != CCSP_SUCCESS)
 	    {
 		    return CM_FAILED;
 	    }
+#endif // _SKY_HUB_COMMON_PRODUCT_REQ_
 	}
 #endif
 	if(waitForComponentReady(CCSP_DBUS_PSM,CCSP_DBUS_PATH_PSM) != CCSP_SUCCESS)
@@ -436,14 +458,14 @@ int getComponentDetails(char *parameterName,char ***compName,char ***dbusPath, i
 			if(strstr(tempParamName, PARAM_RADIO_OBJECT) != NULL)
 		 	{
 		 	       ret = CCSP_ERR_INVALID_RADIO_INDEX;
-		 	       WalError("%s has invalid Radio index, Valid indexes are 10000 and 10100. ret = %d\n", tempParamName,ret);
-		 	       OnboardLog("%s has invalid Radio index, Valid indexes are 10000 and 10100. ret = %d\n", tempParamName,ret);
+		 	       WalError("%s has invalid Radio index, Valid indexes are 10000, 10100 and 10200. ret = %d\n", tempParamName,ret);
+		 	       OnboardLog("%s has invalid Radio index, Valid indexes are 10000, 10100 and 10200. ret = %d\n", tempParamName,ret);
 		 	}
 		 	else
 		 	{
 		         	ret = CCSP_ERR_INVALID_WIFI_INDEX;
-		         	WalError("%s has invalid WiFi index, Valid range is between 10001-10008 and 10101-10108. ret = %d\n",tempParamName, ret);
-		         	OnboardLog("%s has invalid WiFi index, Valid range is between 10001-10008 and 10101-10108. ret = %d\n",tempParamName, ret);
+		         	WalError("%s has invalid WiFi index, Valid range is between 10001-10008, 10101-10108 and 10201-10208. ret = %d\n",tempParamName, ret);
+		         	OnboardLog("%s has invalid WiFi index, Valid range is between 10001-10008, 10101-10108 and 10201-10208. ret = %d\n",tempParamName, ret);
 		 	}					
             		*error = 1;
 			return ret;
@@ -628,6 +650,8 @@ WDMP_STATUS mapStatus(int ret)
 			return WDMP_ERR_NOT_WRITABLE;
 		case CCSP_ERR_SETATTRIBUTE_REJECTED:
 			return WDMP_ERR_SETATTRIBUTE_REJECTED;
+		case CCSP_ERR_REQUEST_REJECTED:
+                        return WDMP_ERR_REQUEST_REJECTED;
 		case CCSP_CR_ERR_NAMESPACE_OVERLAP:
 			return WDMP_ERR_NAMESPACE_OVERLAP;
 		case CCSP_CR_ERR_UNKNOWN_COMPONENT:
@@ -694,12 +718,12 @@ int IndexMpa_WEBPAtoCPE(char *pParameterName)
 				{
 					// For Device.WiFI.Radio.
 					j = 0;
-					len=2;
+					len=3;
 				}
 				else
 				{
 					// For other than Device.WiFI.Radio.
-					j = 2;
+					j = 3;
 					len =WIFI_INDEX_MAP_SIZE;
 				}
 				for (; j < len; j++)
@@ -758,7 +782,7 @@ void IndexMpa_CPEtoWEBPA(char **ppParameterName)
 					j = 0;
 				} else {
 					// For other than Device.WiFI.Radio.
-					j = 2;
+					j = 3;
 				}
 				for (j; j < WIFI_INDEX_MAP_SIZE; j++)
 				{
@@ -1411,3 +1435,36 @@ WDMP_STATUS check_ethernet_wan_status()
     }
     return WDMP_FAILURE;
 }
+
+#ifdef WEBCONFIG_BIN_SUPPORT
+WDMP_STATUS createForceSyncJsonSchema(char *value, char *transactionId, char** stringifiedJson)
+{
+	if( value ==NULL || transactionId == NULL)
+	{
+		WalError("createForceSyncJsonSchema input values are empty\n");
+		return WDMP_FAILURE;
+	}
+
+	char forcesyncVal[32] = { '\0' };
+	char forcesynctransID[32] = { '\0' };
+	cJSON *jsonresponse = NULL;
+
+	walStrncpy(forcesyncVal , value, sizeof(forcesyncVal));
+	walStrncpy(forcesynctransID , transactionId, sizeof(forcesynctransID));
+
+	WalPrint("forcesyncVal %s forcesynctransID %s\n", forcesyncVal, forcesynctransID);
+	jsonresponse = cJSON_CreateObject();
+
+	if (jsonresponse !=NULL)
+	{
+		cJSON_AddStringToObject(jsonresponse,"value", forcesyncVal);
+		cJSON_AddStringToObject(jsonresponse,"transaction_id", forcesynctransID);
+
+		*stringifiedJson = cJSON_PrintUnformatted(jsonresponse);
+		WalPrint("*stringifiedJson is %s\n", *stringifiedJson);
+		cJSON_Delete(jsonresponse);
+		return WDMP_SUCCESS;
+	}
+	return WDMP_FAILURE;
+}
+#endif
