@@ -104,9 +104,9 @@ void deleteRowTable(char *object,WDMP_STATUS *retStatus)
 {
     int ret = 0,status = 0;
     char paramName[MAX_PARAMETERNAME_LEN] = { 0 };
-    WalPrint("object : %s\n",object);
+    WalInfo("object : %s\n",object);
     walStrncpy(paramName,object,sizeof(paramName));
-    WalPrint("paramName before mapping : %s\n",paramName);
+    WalInfo("paramName before mapping : %s\n",paramName);
     status=IndexMpa_WEBPAtoCPE(paramName);
     if(status == -1)
     {
@@ -125,11 +125,23 @@ void deleteRowTable(char *object,WDMP_STATUS *retStatus)
     }
     else
     {
-        WalPrint("paramName after mapping : %s\n",paramName);
-        ret = deleteRow(paramName);
+        WalInfo("paramName after mapping : %s\n",paramName);
+
+	if(isRbusEnabled())
+	{
+		WalInfo("B4 deleteRow_rbus\n");
+		ret = deleteRow_rbus(paramName);
+		WalInfo("deleteRow_rbus ret %d\n", ret);
+	}
+	else
+	{
+		WalInfo("deleteRow using ccsp\n");
+		ret = deleteRow(paramName);
+	}
+
         if(ret == CCSP_SUCCESS)
         {
-            WalPrint("%s is deleted Successfully.\n", paramName);
+            WalInfo("%s is deleted Successfully.\n", paramName);
         }
         else
         {

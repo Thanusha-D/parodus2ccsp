@@ -9,6 +9,7 @@
 #include <pthread.h>
 
 #include "webpa_notification.h"
+#include "webpa_rbus.h"
 #ifdef FEATURE_SUPPORT_WEBCONFIG
 #include "cosa_webconfig_internal.h"
 #include <webcfg_generic.h>
@@ -72,6 +73,26 @@ void getValues(const char *paramName[], const unsigned int paramCount, int index
     char **compName = NULL;
     char **dbusPath = NULL;
     WalPrint("------------- getValues -------------\n");
+
+    if(isRbusEnabled())
+    {
+	int ccspStatus = 0;
+
+	WalInfo("B4 getValues_rbus\n");
+	WalInfo("paramName : %s paramCount %d\n",paramName[0], paramCount);
+	getValues_rbus(paramName, paramCount, index, timeSpan, paramArr, &totalParams, &ret);
+	WalInfo("After getValues_rbus\n");
+	WalInfo("totalParams is %d ret %d\n", totalParams, ret);
+	retValCount[0] = totalParams;
+	//WalInfo("map rbus error code to ccsp error code\n");
+	//ccspStatus = mapRbusStatus(ret);
+	//WalInfo("ccspStatus mapped is %d\n", ccspStatus);
+	*retStatus = mapStatus(ret);
+	WalInfo("wdmp retStatus is %d\n", *retStatus);
+	return;
+    }
+
+    WalInfo("getValues using ccsp\n");
     for(cnt1 = 0; cnt1 < paramCount; cnt1++)
     {
         WalPrint("paramName[%d] : %s\n",cnt1,paramName[cnt1]);

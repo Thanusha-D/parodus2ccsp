@@ -87,6 +87,7 @@
 #define RDKB_ETHAGENT_DBUS_PATH                       "/com/cisco/spvtg/ccsp/ethagent"
 #define RBUS_ENABLE                  "Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.RBUS.Enable"
 
+
 /* RDKB Logger defines */
 #define LOG_FATAL       0
 #define LOG_ERROR       1

@@ -57,7 +57,7 @@ void processRequest(char *reqPayload,char *transactionId, char **resPayload)
 	char *dbCMC = NULL;
 	char newCMC[32]={'\0'};
 	
-        WalPrint("************** processRequest *****************\n");
+        WalInfo("************** processRequest *****************\n");
         
         wdmp_parse_request(reqPayload,&reqObj);
         WalInfo("transactionId in request: %s\n",transactionId);
@@ -65,29 +65,29 @@ void processRequest(char *reqPayload,char *transactionId, char **resPayload)
         
         if(reqObj != NULL)
         {
-                WalPrint("Request:> Type : %d\n",reqObj->reqType);
+                WalInfo("Request:> Type : %d\n",reqObj->reqType);
                 
                 resObj = (res_struct *) malloc(sizeof(res_struct));
                 memset(resObj, 0, sizeof(res_struct));
                 
                 resObj->reqType = reqObj->reqType;
-                WalPrint("Response:> type = %d\n", resObj->reqType);
+                WalInfo("Response:> type = %d\n", resObj->reqType);
                 
                 switch( reqObj->reqType ) 
                 {
                 
                         case GET:
                         {
-                                WalPrint("Request:> ParamCount = %zu\n",reqObj->u.getReq->paramCnt);
+                                WalInfo("Request:> ParamCount = %zu\n",reqObj->u.getReq->paramCnt);
                                 resObj->paramCnt = reqObj->u.getReq->paramCnt;
-                                WalPrint("Response:> paramCnt = %zu\n", resObj->paramCnt);
+                                WalInfo("Response:> paramCnt = %zu\n", resObj->paramCnt);
                                 resObj->retStatus = (WDMP_STATUS *) malloc(sizeof(WDMP_STATUS)*resObj->paramCnt);
                                 resObj->timeSpan = NULL;
                                 paramCount = (int)reqObj->u.getReq->paramCnt;
                                 
                                 for (i = 0; i < paramCount; i++) 
                                 {
-                                        WalPrint("Request:> paramNames[%d] = %s\n",i,reqObj->u.getReq->paramNames[i]);
+                                        WalInfo("Request:> paramNames[%d] = %s\n",i,reqObj->u.getReq->paramNames[i]);
                                         param = reqObj->u.getReq->paramNames[i];
 					if(param == NULL)
 					{
@@ -129,23 +129,23 @@ void processRequest(char *reqPayload,char *transactionId, char **resPayload)
 
                                     if (0 < nonWildcardParamCount) { 
                                         getValues(getParamList, nonWildcardParamCount, index, resObj->timeSpan, &resObj->u.getRes->params, &retCount, &ret);
-                                        WalPrint("Non-Wildcard retCount : %d ret : %d\n",retCount, ret);
+                                        WalInfo("Non-Wildcard retCount : %d ret : %d\n",retCount, ret);
                                         for(i = 0; i < nonWildcardParamCount; i++)
                                         {       
                                                 resObj->u.getRes->paramNames[i] = getParamList[i];
-                                                WalPrint("Response:> paramNames[%d] = %s\n",i,resObj->u.getRes->paramNames[i]);
+                                                WalInfo("Response:> paramNames[%d] = %s\n",i,resObj->u.getRes->paramNames[i]);
                                                 resObj->u.getRes->retParamCnt[i] = 1;
-                                                WalPrint("Response:> retParamCnt[%d] = %zu\n",i,resObj->u.getRes->retParamCnt[i]);
+                                                WalInfo("Response:> retParamCnt[%d] = %zu\n",i,resObj->u.getRes->retParamCnt[i]);
                                                 resObj->retStatus[i] = ret;
-                                                WalPrint("Response:> retStatus[%d] = %d\n",i,resObj->retStatus[i]);
+                                                WalInfo("Response:> retStatus[%d] = %d\n",i,resObj->retStatus[i]);
                                         }
 					if(ret != WDMP_SUCCESS)
                                         {
-                                            WalPrint("Non-wildcard get failed. Hence returning...\n");
+                                            WalInfo("Non-wildcard get failed. Hence returning...\n");
                                             break;
                                         }
                                      } else {
-                                        WalPrint("Non-Wildcard count is zero!\n");
+                                        WalInfo("Non-Wildcard count is zero!\n");
                                        }   
 
                                         if(wildcardParamCount > 0)
@@ -155,13 +155,13 @@ void processRequest(char *reqPayload,char *transactionId, char **resPayload)
                                                 {
                                                         wildcardList[0] = wildcardGetParamList[i];
                                                         resObj->u.getRes->paramNames[index] = wildcardGetParamList[i];
-                                                        WalPrint("Response:> paramNames[%d] = %s\n",index,resObj->u.getRes->paramNames[index]);
+                                                        WalInfo("Response:> paramNames[%d] = %s\n",index,resObj->u.getRes->paramNames[index]);
                                                         getValues(wildcardList, 1, index,resObj->timeSpan, &resObj->u.getRes->params, &retCount, &ret);
-                                                        WalPrint("Wildcard retCount : %d ret: %d\n",retCount, ret);
+                                                        WalInfo("Wildcard retCount : %d ret: %d\n",retCount, ret);
                                                         resObj->u.getRes->retParamCnt[index] = retCount;
-                                                        WalPrint("Response:> retParamCnt[%d] = %zu\n",index,resObj->u.getRes->retParamCnt[index]);
+                                                        WalInfo("Response:> retParamCnt[%d] = %zu\n",index,resObj->u.getRes->retParamCnt[index]);
                                                         resObj->retStatus[index] = ret;
-                                                        WalPrint("Response:> retStatus[%d] = %d\n",index,resObj->retStatus[index]);
+                                                        WalInfo("Response:> retStatus[%d] = %d\n",index,resObj->retStatus[index]);
                                                         index++;
                                                 }
                                         }
@@ -412,16 +412,16 @@ void processRequest(char *reqPayload,char *transactionId, char **resPayload)
                         
                         case DELETE_ROW:
                         {
-                                WalPrint("Request:> ParamCount = %zu\n",reqObj->u.tableReq->rowCnt);
+                                WalInfo("Request:> ParamCount = %zu\n",reqObj->u.tableReq->rowCnt);
                                 resObj->paramCnt = reqObj->u.tableReq->rowCnt;
-                                WalPrint("Response:> paramCnt = %zu\n", resObj->paramCnt);
+                                WalInfo("Response:> paramCnt = %zu\n", resObj->paramCnt);
 				if(resObj->paramCnt == 0)
 					resObj->retStatus = (WDMP_STATUS *) malloc(sizeof(WDMP_STATUS)*1);
 				else
                                 	resObj->retStatus = (WDMP_STATUS *) malloc(sizeof(WDMP_STATUS)*resObj->paramCnt);
 
                                 resObj->timeSpan = NULL;
-                                WalPrint("Request:> Object Name = %s\n",reqObj->u.tableReq->objectName);
+                                WalInfo("Request:> Object Name = %s\n",reqObj->u.tableReq->objectName);
 
                                 ret = validate_table_object(reqObj->u.tableReq);
                                 if(ret == WDMP_SUCCESS)
@@ -432,9 +432,9 @@ void processRequest(char *reqPayload,char *transactionId, char **resPayload)
                                 {
                                         WalError("Table object validations failed\n");
                                 }
-                                WalPrint("Response:> ret = %d\n",ret);
+                                WalInfo("Response:> ret = %d\n",ret);
                                 *resObj->retStatus = ret;
-                                WalPrint("Response:> retStatus = %d\n", *resObj->retStatus);
+                                WalInfo("Response:> retStatus = %d\n", *resObj->retStatus);
                         }
                         break;
                         
@@ -484,11 +484,12 @@ void processRequest(char *reqPayload,char *transactionId, char **resPayload)
 		WalError("Command is NULL\n");
 	}
 
+	WalInfo("B4 wdmp_form_response\n");
         wdmp_form_response(resObj,&payload);
-        WalPrint("payload : %s\n",payload);
+        WalInfo("payload : %s\n",payload);
         *resPayload = payload;
         
-        WalPrint("Response:> Payload = %s\n", *resPayload);
+        WalInfo("Response:> Payload = %s\n", *resPayload);
         
         if(NULL != reqObj)
         {
@@ -498,7 +499,7 @@ void processRequest(char *reqPayload,char *transactionId, char **resPayload)
         {
                 wdmp_free_res_struct(resObj);
         }
-        WalPrint("************** processRequest *****************\n");
+        WalInfo("************** processRequest *****************\n");
 }
 
 /*----------------------------------------------------------------------------*/
