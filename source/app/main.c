@@ -9,6 +9,7 @@
 #include "signal.h"
 #include "webpa_adapter.h"
 #include "libpd.h"
+#include "webpa_rbus.h"
 #ifdef FEATURE_SUPPORT_WEBCONFIG
 #include <curl/curl.h>
 #endif
@@ -53,17 +54,27 @@ int main()
 	/* Backend Manager for Webpa Creation and Initilization 
     CosaWebpaBEManagerCreate( );*/
 	WalInfo("B4 msgBusInit\n");
-	msgBusInit(pComponentName);
-	WalInfo("After msgBusInit\n");
-	ret = waitForOperationalReadyCondition();
+	if(isRbusEnabled())
+	{
+	        WalInfo("daemonize Webpa\n");
+		daemonize();
+		WalInfo("webpaRbusInit\n");
+		webpaRbusInit(pComponentName);
+        }
+	else {
+		WalInfo("Dbus init\n");
+	        msgBusInit(pComponentName);
+	}	
+	WalInfo("After BusInit\n");
+	//ret = waitForOperationalReadyCondition();
 	libpd_client_mgr();
 	WalInfo("Syncing backend manager with DB....\n");
-	CosaWebpaSyncDB();
+	//CosaWebpaSyncDB();
 	WalInfo("Webpa backend manager is in sync with DB\n");
 
-	initComponentCaching(ret);
+	//initComponentCaching(ret);
 	// Initialize Apply WiFi Settings handler
-	initApplyWiFiSettings();
+	//initApplyWiFiSettings();
 	initNotifyTask(ret);
 #ifdef FEATURE_SUPPORT_WEBCONFIG
 	curl_global_init(CURL_GLOBAL_DEFAULT);

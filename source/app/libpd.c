@@ -10,6 +10,7 @@
 #include <sys/time.h>
 #include "libpd.h"
 #include "webpa_adapter.h"
+#include "webpa_rbus.h"
 #ifdef FEATURE_SUPPORT_WEBCONFIG
 #include <webcfg_generic.h>
 #endif
@@ -137,8 +138,8 @@ void set_global_cloud_status(char *status)
 	
 static void parodus_receive()
 {
-        int rtn;
-        wrp_msg_t *wrp_msg;
+        int rtn,i;
+	wrp_msg_t *wrp_msg;
         wrp_msg_t *res_wrp_msg ;
 
         struct timespec start,end,*startPtr,*endPtr;
@@ -162,6 +163,9 @@ static void parodus_receive()
                 return;
         }
 
+	     static headers_t headers = { 2, {"00-0af7651916cd43dd8448eb211c80319c-00f067aa0ba902b7-01", "rojo=00f067aa0ba902b7,congo=t61rcWkgMzE"}};
+	     wrp_msg->u.req.headers = &headers;
+             
         if(wrp_msg != NULL)
         {
             if (wrp_msg->msg_type == WRP_MSG_TYPE__REQ)
@@ -194,6 +198,30 @@ static void parodus_receive()
 			{
 				res_wrp_msg->u.req.transaction_uuid = strdup(wrp_msg->u.req.transaction_uuid);
 			}
+			//res_wrp_msg->u.req.headers = wrp_msg->u.req.headers;
+			if(wrp_msg->u.req.headers)
+			{
+			    if(isRbusInitialized)
+		            {		    
+			        rbusError_t ret = RBUS_ERROR_SUCCESS;
+				ret = setTraceContext(wrp_msg->u.req.headers->headers[0], wrp_msg->u.req.headers->headers[1]);
+				if(ret == RBUS_ERROR_SUCCESS) {
+					WalInfo("SetTraceContext success\n");
+				}
+				else {
+					WalInfo("SetTraceContext failed with error - %d\n", ret);
+				}	
+			     }
+			     else
+			     {
+				     WalInfo("Rbus not initialzed\n");
+			     }	     
+				/*WalInfo("res_wrp_msg->u.req.headers->count = %d\n",res_wrp_msg->u.req.headers->count);
+						    for(i=0; i<res_wrp_msg->u.req.headers->count; i++)
+						    {
+						        WalInfo("res_wrp_msg->u.req.headers->headers[i] = %s\n", res_wrp_msg->u.req.headers->headers[i]);
+						    }*/
+                        }						    
                         contentType = strdup(CONTENT_TYPE_JSON);
                         if(contentType != NULL)
                         {
