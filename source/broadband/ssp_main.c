@@ -46,7 +46,7 @@ int  cmd_dispatch(int  command)
 
 #ifdef _ANSC_LINUX
             CcspTraceInfo(("Connect to bus daemon...\n"));
-
+	    
             {
                 char                            CName[256];
 
@@ -58,19 +58,19 @@ int  cmd_dispatch(int  command)
                 {
                     _ansc_sprintf(CName, "%s", CCSP_COMPONENT_ID_WEBPAAGENT);
                 }
-
-                ssp_Mbi_MessageBusEngage
+             
+		ssp_Mbi_MessageBusEngage
                     ( 
                         CName,
                         CCSP_MSG_BUS_CFG,
                         CCSP_COMPONENT_PATH_WEBPAAGENT
                     );
-            }
+	    }
 #endif
-
+            
             ssp_create();
-            ssp_engage();
-
+	    ssp_engage();
+	    
             break;
 
         case    'm':
@@ -94,7 +94,7 @@ int  cmd_dispatch(int  command)
         default:
             break;
     }
-
+    
     return 0;
 }
 
@@ -118,16 +118,16 @@ WDMP_STATUS msgBusInit(const char *pComponentName)
 
     if ( bRunAsDaemon ) 
         daemonize();
-
+	
     cmd_dispatch('e');
 
     subSys = NULL;      /* use default sub-system */
-
+   
     err = Cdm_Init(bus_handle, subSys, NULL, NULL, pComponentName);
     if (err != CCSP_SUCCESS)
     {
         fprintf(stderr, "Cdm_Init: %s\n", Cdm_StrError(err));
-        exit(1);
+	exit(1);
     }
     system("touch /tmp/webpa_initialized");
 if ( bRunAsDaemon )
@@ -143,14 +143,14 @@ if ( bRunAsDaemon )
             cmd_dispatch(cmdChar);
         }
     }
-
+    
     err = Cdm_Term();
     if (err != CCSP_SUCCESS)
     {
     fprintf(stderr, "Cdm_Term: %s\n", Cdm_StrError(err));
     exit(1);
     }
-
+    
     ssp_cancel();
     return WDMP_SUCCESS;
 }

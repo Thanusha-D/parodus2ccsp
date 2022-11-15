@@ -8,6 +8,7 @@
 
 #include "webpa_notification.h"
 #include "webpa_internal.h"
+#include "webpa_rbus.h"
 #ifdef FEATURE_SUPPORT_WEBCONFIG
 #include <webcfg_generic.h>
 #endif
@@ -39,7 +40,7 @@ extern ANSC_HANDLE bus_handle;
 /*                             External Functions                             */
 /*----------------------------------------------------------------------------*/
 
-void processRequest(char *reqPayload,char *transactionId, char **resPayload)
+void processRequest(char *reqPayload,char *transactionId, char **resPayload, headers_t *req_headers, headers_t *res_headers)
 {
         req_struct *reqObj = NULL;
         res_struct *resObj = NULL;
@@ -84,7 +85,39 @@ void processRequest(char *reqPayload,char *transactionId, char **resPayload)
                                 resObj->retStatus = (WDMP_STATUS *) malloc(sizeof(WDMP_STATUS)*resObj->paramCnt);
                                 resObj->timeSpan = NULL;
                                 paramCount = (int)reqObj->u.getReq->paramCnt;
-                                
+
+				if(isRbusInitialized)
+		                {
+				      WalInfo("Going to set TraceContext in Webpa GET\n");	
+			              rbusError_t ret = RBUS_ERROR_SUCCESS;
+				      if(req_headers->count == 2) {
+					     if(req_headers->headers != NULL && req_headers->headers[0] != NULL && req_headers->headers[1] != NULL) {
+						   if(strlen(req_headers->headers[0]) > 0 && strlen(req_headers->headers[1]) > 0) {  
+				                   	ret = setTraceContext(req_headers->headers[0], req_headers->headers[1]);
+						   	if(ret == RBUS_ERROR_SUCCESS) {
+                                                          	WalInfo("SetTraceContext success\n");
+                                                   	}  
+                                                   	else {
+                                                          	WalError("SetTraceContext failed with error - %d\n", ret);
+                                                   	}
+						   }	
+					           else {
+							    WalError("Header is empty\n");
+					           }		    
+					     }
+				             else {
+					              WalError("Header is NULL\n");
+				             }
+				      } 
+				      else {
+					      WalError("request header count is not equal to 2\n");
+				      }	      
+				}
+				else {
+				     WalInfo("Rbus not initialzed\n");
+			        }
+                                WalInfo("After set the TraceContext in webpa GET request\n");
+
                                 for (i = 0; i < paramCount; i++) 
                                 {
                                         WalPrint("Request:> paramNames[%d] = %s\n",i,reqObj->u.getReq->paramNames[i]);
@@ -166,6 +199,27 @@ void processRequest(char *reqPayload,char *transactionId, char **resPayload)
                                                 }
                                         }
                                 }
+                                
+				if(isRbusInitialized)
+				{
+					WalInfo("Going to get TraceContext in Webpa GET request\n");
+					for( int cnt = 0; cnt < 2; cnt++ ) {
+		                                 res_headers->headers[cnt] = ( char * ) malloc(sizeof(char)*512);
+                                        }
+                                        rbusError_t ret = RBUS_ERROR_SUCCESS;
+					ret = getTraceContext(res_headers->headers);
+					if(ret != RBUS_ERROR_SUCCESS){
+						WalError("GetTrace context in webpa GET request failed with error code - %d\n", ret);
+					}
+					else {
+						WalInfo("GetTrace context in webpa GET request is success\n");
+                                         }
+				}		
+				else {
+					WalError("Rbus not initialized\n");
+				}
+				WalInfo("After get TraceContext in webpa GET request\n");
+
                         }
                         break;
                         
@@ -231,7 +285,36 @@ void processRequest(char *reqPayload,char *transactionId, char **resPayload)
                                 paramCount = (int)reqObj->u.setReq->paramCnt;
                                 resObj->u.paramRes = (param_res_t *) malloc(sizeof(param_res_t));
                                 memset(resObj->u.paramRes, 0, sizeof(param_res_t));
-                                
+
+                                /*if(isRbusInitialized)
+                                {
+                                      WalInfo("Going to set TraceContext in Webpa SET\n");
+                                      rbusError_t ret = RBUS_ERROR_SUCCESS;
+                                      if(req_headers != NULL) {
+                                             size_t header_size = sizeof(req_headers) / sizeof(req_headers[0]);
+                                             WalInfo("Number of elements in header - %ld\n", header_size);
+                                             if(header_size == 2) {
+                                                   ret = setTraceContext(req_headers[0], req_headers[1]);
+                                                   if(ret == RBUS_ERROR_SUCCESS) {
+                                                          WalInfo("SetTraceContext success\n");
+                                                   }
+                                                   else {
+                                                          WalError("SetTraceContext failed with error - %d\n", ret);
+                                                   }
+                                             }
+                                             else {
+                                                      WalError("Headers count is not 2\n");
+                                             }
+                                      }
+                                      else {
+                                              WalError("Header is null\n");
+                                      }
+                                }
+                                else {
+                                     WalInfo("Rbus not initialzed\n");
+                                }
+                                WalInfo("After set the TraceContext in webpa SET request\n");*/ 
+
                                 for (i = 0; i < paramCount; i++) 
                                 {
                                         WalPrint("Request:> param[%d].name = %s\n",i,reqObj->u.setReq->param[i].name);
@@ -278,7 +361,37 @@ void processRequest(char *reqPayload,char *transactionId, char **resPayload)
                                         resObj->retStatus[0] = ret;
                                         WalPrint("Response:> resObj->retStatus[0] = %d\n",resObj->retStatus[0]);
                                 }
-                                
+
+                                /*if(isRbusInitialized)
+                                {
+                                        WalInfo("Going to get TraceContext in Webpa SET request\n");
+                                        for( int cnt = 0; cnt < 2; cnt++ ) {
+                                                 res_headers[cnt] = ( char * ) malloc(sizeof(char)*64);
+                                        }
+                                        char traceParent[512] = {'\0'};
+                                        char traceState[512] = {'\0'};
+                                        rbusError_t ret = RBUS_ERROR_SUCCESS;
+                                        ret = getTraceContext(traceParent, traceState);
+                                        if(ret != RBUS_ERROR_SUCCESS){
+                                                WalInfo("GetTrace context in webpa SET request failed with error code - %d\n", ret);
+                                        }
+                                        else {
+                                                WalInfo("GetTrace context in webpa SET request is success\n");
+                                                if(traceParent != NULL && traceState != NULL) {
+                                                        WalInfo("traceParent & traceState not equal to NULL\n");
+                                                        res_headers[0] = strdup(traceParent);
+                                                        res_headers[1] = strdup(traceState);
+                                                }
+                                                else {
+                                                        WalError("traceparent, traceState is NULL\n");
+                                                }
+                                         }
+                                }
+                                else {
+                                        WalError("Rbus not initialized\n");
+                                }
+                                WalInfo("After get TraceContext in webpa SET request\n");*/
+				
                         }
                         break;
                         

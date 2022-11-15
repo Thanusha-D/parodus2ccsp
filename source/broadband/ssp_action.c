@@ -48,7 +48,6 @@ extern  ULONG                   g_ulAllocatedSizePeak;
 ANSC_STATUS ssp_create()
 {
     /* Create component common data model object */
-
      g_pComponent_COMMON_webpaagent = (PCOMPONENT_COMMON_WEBPAAGENT)AnscAllocateMemory(sizeof(COMPONENT_COMMON_WEBPAAGENT));
 
     if ( ! g_pComponent_COMMON_webpaagent )

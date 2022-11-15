@@ -162,7 +162,22 @@ static void parodus_receive()
                 return;
         }
 
-        if(wrp_msg != NULL)
+	headers_t *headers;
+        headers = (headers_t *)malloc(sizeof(headers_t));
+	headers->count = 2;
+	char *arr[] = {"00-0af7651916cd43dd8448eb211c80319c-00f067aa0ba902b7-01", "rojo=00f067aa0ba902b7,congo=t61rcWkgMzE"};
+	for( int cnt = 0; cnt < headers->count; cnt++ ) {
+		    headers->headers[cnt] = ( char * ) malloc(sizeof(char)*128);
+		    headers->headers[cnt] = strdup(arr[cnt]);
+         }
+        
+	wrp_msg->u.req.headers = headers;
+        
+	WalInfo("req header count in wrp_msg - %d\n", wrp_msg->u.req.headers->count);
+        WalInfo("req header 0 in wrp_msg - %s\n", wrp_msg->u.req.headers->headers[0]);
+	WalInfo("req header 1 in wrp_msg - %s\n", wrp_msg->u.req.headers->headers[1]);
+
+	if(wrp_msg != NULL)
         {
             if (wrp_msg->msg_type == WRP_MSG_TYPE__REQ)
             {
@@ -173,9 +188,28 @@ static void parodus_receive()
                     {
 						memset(res_wrp_msg, 0, sizeof(wrp_msg_t));
                         getCurrentTime(startPtr);
-                        processRequest((char *)wrp_msg->u.req.payload, wrp_msg->u.req.transaction_uuid, ((char **)(&(res_wrp_msg->u.req.payload))));
 
-                        
+			headers_t *res_headers;
+                        res_headers = (headers_t *)malloc(sizeof(headers_t));
+
+                        processRequest((char *)wrp_msg->u.req.payload, wrp_msg->u.req.transaction_uuid, ((char **)(&(res_wrp_msg->u.req.payload))), wrp_msg->u.req.headers, res_headers);
+
+			if(res_headers != NULL && res_headers->headers[0] != NULL && res_headers->headers[1] != NULL) {
+				if(strlen(res_headers->headers[0]) > 0 && strlen(res_headers->headers[1]) > 0) {
+					  res_headers->count = 2;
+                                          WalInfo("res_headers not euql to NULL\n");
+					  WalInfo("res_headers count - %d\n", res_headers->count);
+                                          WalInfo("res_headers header 0 - %s\n", res_headers->headers[0]);
+                                          WalInfo("res_headers header 1 - %s\n", res_headers->headers[1]);
+                                          if(res_headers->count == 2) {
+                                                res_wrp_msg->u.req.headers = res_headers;
+						WalInfo("res header count in res_wrp_msg - %d\n", res_wrp_msg->u.req.headers->count);
+                                                WalInfo("res header 0 in res_wrp_msg - %s\n", res_wrp_msg->u.req.headers->headers[0]);
+                                                WalInfo("res header 1 in res_wrp_msg - %s\n", res_wrp_msg->u.req.headers->headers[1]);
+                                          }
+				}
+		        }
+                                                
                         if(res_wrp_msg->u.req.payload !=NULL)
                         {   
                                 WalPrint("Response payload is %s\n",(char *)(res_wrp_msg->u.req.payload));
@@ -194,7 +228,7 @@ static void parodus_receive()
 			{
 				res_wrp_msg->u.req.transaction_uuid = strdup(wrp_msg->u.req.transaction_uuid);
 			}
-                        contentType = strdup(CONTENT_TYPE_JSON);
+			contentType = strdup(CONTENT_TYPE_JSON);
                         if(contentType != NULL)
                         {
                             res_wrp_msg->u.req.content_type = contentType;
@@ -212,9 +246,13 @@ static void parodus_receive()
                         }
                         getCurrentTime(endPtr);
                         WalInfo("Elapsed time : %ld ms\n", timeValDiff(startPtr, endPtr));
+			WalInfo("Before res_wrp_msg free\n");
                         wrp_free_struct (res_wrp_msg);
+			WalInfo("After res_wrp_msg free\n");
                     }
+		    WalInfo("Before wrp_msg free\n");
 		    wrp_free_struct (wrp_msg);
+		    WalInfo("After wrp_msg free\n");
             }
 
             //handle cloud-status retrieve response received from parodus
