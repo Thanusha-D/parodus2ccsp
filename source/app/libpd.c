@@ -201,26 +201,7 @@ static void parodus_receive()
 			//res_wrp_msg->u.req.headers = wrp_msg->u.req.headers;
 			if(wrp_msg->u.req.headers)
 			{
-			    if(isRbusInitialized)
-		            {		    
-			        rbusError_t ret = RBUS_ERROR_SUCCESS;
-				ret = setTraceContext(wrp_msg->u.req.headers->headers[0], wrp_msg->u.req.headers->headers[1]);
-				if(ret == RBUS_ERROR_SUCCESS) {
-					WalInfo("SetTraceContext success\n");
-				}
-				else {
-					WalInfo("SetTraceContext failed with error - %d\n", ret);
-				}	
-			     }
-			     else
-			     {
-				     WalInfo("Rbus not initialzed\n");
-			     }	     
-				/*WalInfo("res_wrp_msg->u.req.headers->count = %d\n",res_wrp_msg->u.req.headers->count);
-						    for(i=0; i<res_wrp_msg->u.req.headers->count; i++)
-						    {
-						        WalInfo("res_wrp_msg->u.req.headers->headers[i] = %s\n", res_wrp_msg->u.req.headers->headers[i]);
-						    }*/
+			        	rbusHandle_SetTraceContextFromString(wrp_msg->u.req.headers->headers[0], wrp_msg->u.req.headers->headers[1]);
                         }						    
                         contentType = strdup(CONTENT_TYPE_JSON);
                         if(contentType != NULL)
